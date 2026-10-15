@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import plotly.graph_objects as go
 from src.metricas import calcular_metricas, formatar_metricas
 
 # Configuração da página
@@ -179,7 +180,6 @@ if metricas_exibicao is not None:
     st.markdown("---")
     st.subheader("📈 Evolução dos Processos")
     
-    import plotly.graph_objects as go
     from src.metricas import processar_evolucao_mensal, processar_evolucao_semanal
     
     # Decidir qual tipo de gráfico exibir baseado no filtro
