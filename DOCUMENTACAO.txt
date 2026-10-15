@@ -1,0 +1,310 @@
+================================================================================
+                    DOCUMENTAÇÃO DO PROJETO
+                  DASHBOARD ANÁLISE COMERCIAL
+================================================================================
+
+📋 VISÃO GERAL
+--------------
+Sistema de análise de dados comerciais desenvolvido em Python com Streamlit.
+Permite upload de arquivos Excel, limpeza automática de dados e visualização
+de métricas comerciais.
+
+================================================================================
+📁 ESTRUTURA DO PROJETO
+================================================================================
+
+analise_comercial/
+│
+├── main.py                          # ⭐ Aplicação Streamlit principal
+│
+├── data/                            # 📂 Dados
+│   └── RelatorioProcessos_BA_MAR_ate_SET2026.xlsx
+│
+├── src/                             # 📦 Código fonte
+│   └── metricas.py                  # Cálculo de métricas
+│
+├── analise_exploratoria/            # 📓 Notebooks Jupyter para entender os dados
+│   ├── metricas.ipynb               # Análise de métricas
+│   └── exploracao.ipynb             # Exploração de dados
+│
+├── utils/                           # 🛠️ Utilitários (vazios no momento)
+│   ├── __init__.py
+│   ├── data_loader.py
+│   └── analysis.py
+│
+├── requirements.txt                 # 📦 Dependências Python
+├── README.md                        # 📖 Documentação GitHub
+├── DOCUMENTACAO.txt                 # 📄 Esta documentação
+└── .gitignore                       # 🚫 Arquivos ignorados
+
+================================================================================
+🎯 ARQUIVOS PRINCIPAIS
+================================================================================
+
+1. main.py
+----------
+Aplicação Streamlit principal.
+
+FUNCIONALIDADES:
+- Upload de arquivo Excel (drag-and-drop)
+- Carregamento de dados com pandas
+- Limpeza automática:
+  * Remove linhas completamente vazias
+  * Remove duplicatas
+- Cálculo automático de métricas
+- Exibição de cards com métricas
+- Preview dos dados em tabela
+
+DEPENDÊNCIAS:
+- streamlit
+- pandas
+- src.metricas
+
+FLUXO:
+1. Usuário faz upload do Excel
+2. Pandas carrega os dados
+3. Limpeza automática é aplicada
+4. Métricas são calculadas
+5. Interface exibe resultados
+
+
+2. src/metricas.py
+------------------
+Módulo de cálculo de métricas comerciais.
+
+FUNÇÕES:
+
+calcular_total_processos(df)
+  - Conta processos onde STATUS PAGAMENTO = "PAGO" ou "FATURADO"
+  - Retorna: int (quantidade)
+
+calcular_receita(df)
+  - Soma VALOR DO PROCESSO onde STATUS = "PAGO" ou "FATURADO"
+  - Retorna: float (receita total)
+
+calcular_metricas(df)
+  - Calcula todas as métricas de uma vez
+  - Retorna: dict {'total_processos': int, 'receita': float}
+
+formatar_metricas(metricas)
+  - Formata valores para exibição
+  - Retorna: dict com strings formatadas (R$ 1.234,56)
+
+COLUNAS NECESSÁRIAS NO EXCEL:
+- "STATUS PAGAMENTO" → Valores: "PAGO" ou "FATURADO"
+- "VALOR DO PROCESSO" → Valores numéricos
+
+
+3. analise_exploratoria/metricas.ipynb
+---------------------------------------
+Notebook Jupyter para análise exploratória.
+
+CÉLULAS:
+1. Imports e configurações
+2. Carregamento dos dados
+3. Limpeza automática
+4. Informações do DataFrame
+5. Preview dos dados
+6. Estatísticas descritivas
+7. Análise de valores nulos
+8. Salvar DataFrame limpo (opcional)
+
+USO: Exploração e testes antes de implementar no Streamlit
+
+================================================================================
+🚀 COMO EXECUTAR
+================================================================================
+
+1. INSTALAR DEPENDÊNCIAS
+-------------------------
+pip install -r requirements.txt
+
+Dependências principais:
+- streamlit
+- pandas
+- openpyxl (para ler Excel)
+- jupyter (para notebooks)
+
+
+2. EXECUTAR O DASHBOARD
+------------------------
+streamlit run main.py
+
+Acesse: http://localhost:8501
+
+
+3. EXECUTAR NOTEBOOK (OPCIONAL)
+--------------------------------
+jupyter notebook analise_exploratoria/metricas.ipynb
+
+ou
+
+jupyter lab
+
+================================================================================
+📊 MÉTRICAS CALCULADAS
+================================================================================
+
+1. TOTAL DE PROCESSOS
+---------------------
+Descrição: Quantidade total de processos pagos ou faturados
+Cálculo: COUNT onde STATUS PAGAMENTO in ["PAGO", "FATURADO"]
+Formato: 1.234 (número inteiro com separador de milhares)
+
+
+2. RECEITA TOTAL
+----------------
+Descrição: Soma do valor de todos os processos pagos/faturados
+Cálculo: SUM(VALOR DO PROCESSO) onde STATUS in ["PAGO", "FATURADO"]
+Formato: R$ 1.234.567,89 (moeda brasileira)
+
+================================================================================
+🔄 FLUXO DE DADOS
+================================================================================
+
+1. UPLOAD
+---------
+Excel (.xlsx/.xls) → uploaded_file (Streamlit)
+
+
+2. CARREGAMENTO
+---------------
+uploaded_file → pd.read_excel() → DataFrame original
+
+
+3. LIMPEZA
+----------
+DataFrame original → 
+  - Remover linhas vazias (dropna(how='all'))
+  - Remover duplicatas (drop_duplicates())
+  → DataFrame limpo
+
+
+4. CÁLCULO DE MÉTRICAS
+----------------------
+DataFrame limpo → 
+  - calcular_total_processos()
+  - calcular_receita()
+  → dict de métricas
+
+
+5. FORMATAÇÃO
+-------------
+Métricas (números) → formatar_metricas() → Métricas (strings formatadas)
+
+
+6. EXIBIÇÃO
+-----------
+Métricas formatadas → st.metric() → Cards na interface
+
+================================================================================
+💾 SESSION STATE (STREAMLIT)
+================================================================================
+
+O Streamlit usa session_state para manter dados entre interações:
+
+st.session_state.df_original
+  - DataFrame original carregado do Excel
+  - Usado como backup
+
+st.session_state.df_limpo
+  - DataFrame após limpeza
+  - Usado para cálculos
+
+st.session_state.metricas
+  - Dicionário com métricas calculadas
+  - {'total_processos': int, 'receita': float}
+
+================================================================================
+⚙️ CONFIGURAÇÕES
+================================================================================
+
+STREAMLIT (main.py)
+-------------------
+- page_title: "Relatório de Análise Comercial"
+- layout: "wide" (usa largura total da tela)
+
+PANDAS (metricas.ipynb)
+-----------------------
+- display.max_columns: None (mostra todas as colunas)
+- display.max_rows: 100 (mostra até 100 linhas)
+- warnings: ignorados
+
+================================================================================
+🐛 TRATAMENTO DE ERROS
+================================================================================
+
+src/metricas.py
+---------------
+- Verifica se colunas existem (KeyError)
+- Retorna 0 em caso de erro
+- Exibe mensagens de aviso no console
+
+main.py
+-------
+- Try/except ao processar arquivo
+- Exibe erro na interface com st.error()
+- Continua funcionando mesmo com erros
+
+================================================================================
+📝 BOAS PRÁTICAS IMPLEMENTADAS
+================================================================================
+
+1. SIMPLICIDADE
+   - Código direto e objetivo
+   - Sem camadas desnecessárias
+   - Pandas direto (sem wrappers)
+
+2. SEPARAÇÃO DE RESPONSABILIDADES
+   - main.py → Interface
+   - src/metricas.py → Lógica de cálculo
+   - notebooks → Exploração
+
+3. TRATAMENTO DE ERROS
+   - Try/except em pontos críticos
+   - Mensagens claras de erro
+   - Valores padrão seguros (0)
+
+4. DOCUMENTAÇÃO
+   - Docstrings em funções
+   - Comentários explicativos
+   - Esta documentação
+
+5. TYPE HINTS
+   - Tipos declarados nas funções
+   - Facilita manutenção
+   - Melhora IDE autocomplete
+
+================================================================================
+🔮 PRÓXIMAS MELHORIAS POSSÍVEIS
+================================================================================
+
+1. Adicionar mais métricas
+2. Criar gráficos (usar Plotly)
+3. Filtros por período/status
+4. Export de relatórios (PDF/Excel)
+5. Comparação entre períodos
+6. Dashboard com múltiplas páginas
+
+================================================================================
+📞 SUPORTE
+================================================================================
+
+Para dúvidas sobre:
+- Streamlit: https://docs.streamlit.io/
+- Pandas: https://pandas.pydata.org/docs/
+- Python: https://docs.python.org/
+
+================================================================================
+📅 INFORMAÇÕES DO PROJETO
+================================================================================
+
+Linguagem: Python 3.11+
+Framework: Streamlit
+Biblioteca de dados: Pandas
+Tipo: Dashboard web interativo
+Status: Em desenvolvimento ativo
+
+================================================================================
+                            FIM DA DOCUMENTAÇÃO
+================================================================================
