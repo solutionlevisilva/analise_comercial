@@ -260,9 +260,8 @@ elif uploaded_file is None:
     st.info("👈 Faça upload de um arquivo Excel usando o menu lateral para começar!")
     
     st.markdown("### 📋 Como usar:")
-    st.markdown("""
-    1. Clique em **"Browse files"** no menu lateral ou arraste seu arquivo Excel
+    st.markdown(""" 
+    1. Clique em **"Upload"** no menu lateral ou arraste seu arquivo Excel
     2. Aguarde o processamento automático dos dados
     3. Visualize as métricas calculadas
-    4. Explore os dados na tabela
     """)
