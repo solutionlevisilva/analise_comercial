@@ -9,6 +9,18 @@ st.set_page_config(
     layout="wide"
 )
 
+# CSS para ajustar tamanho da fonte das métricas
+st.markdown("""
+<style>
+    [data-testid="stMetricValue"] {
+        font-size: 24px;
+    }
+    [data-testid="stMetricLabel"] {
+        font-size: 13px;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 # Inicializar session state
 if 'df_original' not in st.session_state:
     st.session_state.df_original = None
@@ -42,7 +54,7 @@ if uploaded_file is not None:
         with st.spinner("⏳ Carregando dados..."):
             df = pd.read_excel(uploaded_file)
             st.session_state.df_original = df
-            st.success(f"✅ {len(df)} linhas carregadas!")
+            st.success(f"✅ Carregado com sucesso!")
         
         # Limpar dados automaticamente
         with st.spinner("🧹 Limpando dados..."):
@@ -126,7 +138,8 @@ if st.session_state.df_limpo is not None and st.session_state.periodo_filtro is 
         metricas_exibicao = calcular_metricas(df_exibicao)
     else:
         metricas_exibicao = {
-            'total_processos': 0, 
+            'total_processos': 0,
+            'processos_concluidos': 0,
             'receita': 0.0,
             'total_pago': 0.0,
             'total_faturado': 0.0
@@ -145,8 +158,8 @@ if metricas_exibicao is not None:
     # Formatar métricas
     metricas_formatadas = formatar_metricas(metricas_exibicao)
     
-    # Criar cards de métricas (4 colunas)
-    col1, col2, col3, col4 = st.columns(4)
+    # Criar cards de métricas (5 colunas)
+    col1, col2, col3, col4, col5 = st.columns(5)
     
     with col1:
         st.metric(
@@ -157,19 +170,26 @@ if metricas_exibicao is not None:
     
     with col2:
         st.metric(
+            label="✅ Processos Concluídos",
+            value=metricas_formatadas['processos_concluidos'],
+            help="Processos com status PAGO ou FATURADO"
+        )
+    
+    with col3:
+        st.metric(
             label="💰 Receita Total",
             value=metricas_formatadas['receita'],
             help="Soma do valor dos processos pagos/faturados"
         )
     
-    with col3:
+    with col4:
         st.metric(
             label="💵 Total Pago",
             value=metricas_formatadas['total_pago'],
             help="Soma dos valores com status PAGO"
         )
     
-    with col4:
+    with col5:
         st.metric(
             label="🧾 Total Faturado",
             value=metricas_formatadas['total_faturado'],
@@ -189,26 +209,75 @@ if metricas_exibicao is not None:
             df_evolucao = processar_evolucao_mensal(df_exibicao)
         
         if not df_evolucao.empty:
-            # Criar gráfico mensal
+            # Criar gráfico misto (barras + linhas)
             fig = go.Figure()
             
+            # Barras: Quantidade total
             fig.add_trace(go.Bar(
                 x=df_evolucao['mes_nome'],
                 y=df_evolucao['quantidade'],
                 text=df_evolucao['quantidade'],
                 textposition='outside',
                 marker_color='#1f77b4',
-                name='Processos por Mês'
+                name='Total de Processos',
+                yaxis='y'
             ))
             
-            # Configurar layout
+            # Linha 1: Valores Pagos
+            fig.add_trace(go.Scatter(
+                x=df_evolucao['mes_nome'],
+                y=df_evolucao['valor_pago'],
+                mode='lines+markers',
+                name='Total Pago',
+                line=dict(color='#2ca02c', width=3),
+                marker=dict(size=8),
+                yaxis='y2'
+            ))
+            
+            # Linha 2: Valores Faturados
+            fig.add_trace(go.Scatter(
+                x=df_evolucao['mes_nome'],
+                y=df_evolucao['valor_faturado'],
+                mode='lines+markers',
+                name='Total Faturado',
+                line=dict(color='#ff7f0e', width=3),
+                marker=dict(size=8),
+                yaxis='y2'
+            ))
+            
+            # Linha 3: Processos Cancelados
+            fig.add_trace(go.Scatter(
+                x=df_evolucao['mes_nome'],
+                y=df_evolucao['processos_cancelados'],
+                mode='lines+markers',
+                name='Processos Cancelados',
+                line=dict(color='#d62728', width=3, dash='dot'),
+                marker=dict(size=8),
+                yaxis='y'
+            ))
+            
+            # Configurar layout com dois eixos Y
             fig.update_layout(
-                title="Quantidade de Processos por Mês",
+                title="Evolução Mensal de Processos e Valores",
                 xaxis_title="Mês",
-                yaxis_title="Quantidade de Processos",
-                height=450,
-                showlegend=False,
-                hovermode='x'
+                yaxis=dict(
+                    title="Quantidade de Processos",
+                    side='left'
+                ),
+                yaxis2=dict(
+                    title="Valores (R$)",
+                    overlaying='y',
+                    side='right'
+                ),
+                height=500,
+                hovermode='x unified',
+                legend=dict(
+                    orientation="h",
+                    yanchor="bottom",
+                    y=1.02,
+                    xanchor="right",
+                    x=1
+                )
             )
             
             # Exibir gráfico
@@ -226,26 +295,75 @@ if metricas_exibicao is not None:
             dados_mes = df_evolucao[df_evolucao['mes_ano'] == st.session_state.periodo_filtro]
             
             if not dados_mes.empty:
-                # Criar gráfico semanal
+                # Criar gráfico misto (barras + linhas)
                 fig = go.Figure()
                 
+                # Barras: Quantidade total
                 fig.add_trace(go.Bar(
                     x=[f"Semana {s}" for s in dados_mes['semana']],
                     y=dados_mes['quantidade'],
                     text=dados_mes['quantidade'],
                     textposition='outside',
                     marker_color='#1f77b4',
-                    name=f'Semanas de {st.session_state.nome_periodo}'
+                    name='Total de Processos',
+                    yaxis='y'
                 ))
                 
-                # Configurar layout
+                # Linha 1: Valores Pagos
+                fig.add_trace(go.Scatter(
+                    x=[f"Semana {s}" for s in dados_mes['semana']],
+                    y=dados_mes['valor_pago'],
+                    mode='lines+markers',
+                    name='Total Pago',
+                    line=dict(color='#2ca02c', width=3),
+                    marker=dict(size=8),
+                    yaxis='y2'
+                ))
+                
+                # Linha 2: Valores Faturados
+                fig.add_trace(go.Scatter(
+                    x=[f"Semana {s}" for s in dados_mes['semana']],
+                    y=dados_mes['valor_faturado'],
+                    mode='lines+markers',
+                    name='Total Faturado',
+                    line=dict(color='#ff7f0e', width=3),
+                    marker=dict(size=8),
+                    yaxis='y2'
+                ))
+                
+                # Linha 3: Processos Cancelados
+                fig.add_trace(go.Scatter(
+                    x=[f"Semana {s}" for s in dados_mes['semana']],
+                    y=dados_mes['processos_cancelados'],
+                    mode='lines+markers',
+                    name='Processos Cancelados',
+                    line=dict(color='#d62728', width=3, dash='dot'),
+                    marker=dict(size=8),
+                    yaxis='y'
+                ))
+                
+                # Configurar layout com dois eixos Y
                 fig.update_layout(
-                    title=f"Semanas de {st.session_state.nome_periodo}",
+                    title=f"Evolução Semanal - {st.session_state.nome_periodo}",
                     xaxis_title="Semanas do Mês",
-                    yaxis_title="Quantidade de Processos",
-                    height=450,
-                    showlegend=False,
-                    hovermode='x'
+                    yaxis=dict(
+                        title="Quantidade de Processos",
+                        side='left'
+                    ),
+                    yaxis2=dict(
+                        title="Valores (R$)",
+                        overlaying='y',
+                        side='right'
+                    ),
+                    height=500,
+                    hovermode='x unified',
+                    legend=dict(
+                        orientation="h",
+                        yanchor="bottom",
+                        y=1.02,
+                        xanchor="right",
+                        x=1
+                    )
                 )
                 
                 # Exibir gráfico

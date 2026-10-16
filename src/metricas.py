@@ -28,6 +28,33 @@ def calcular_total_processos(df: pd.DataFrame) -> int:
         return 0
 
 
+def calcular_processos_concluidos(df: pd.DataFrame) -> int:
+    """
+    Calcula a quantidade de processos concluídos (PAGO ou FATURADO)
+    
+    Regra: Conta registros onde STATUS PAGAMENTO = "PAGO" ou "FATURADO"
+    
+    Args:
+        df: DataFrame com os dados
+        
+    Returns:
+        int: Quantidade de processos concluídos
+    """
+    try:
+        # Filtrar processos com status PAGO ou FATURADO
+        mask = df['STATUS PAGAMENTO'].str.upper().isin(['PAGO', 'FATURADO'])
+        total_concluidos = mask.sum()
+        
+        return int(total_concluidos)
+    
+    except KeyError as e:
+        print(f"⚠️ Erro: Coluna 'STATUS PAGAMENTO' não encontrada - {str(e)}")
+        return 0
+    except Exception as e:
+        print(f"⚠️ Erro ao calcular processos concluídos: {str(e)}")
+        return 0
+
+
 def calcular_receita(df: pd.DataFrame) -> float:
     """
     Calcula a receita total dos processos pagos ou faturados
@@ -132,6 +159,7 @@ def calcular_metricas(df: pd.DataFrame) -> Dict[str, float]:
         dict: Dicionário com as métricas calculadas
             {
                 'total_processos': int,
+                'processos_concluidos': int,
                 'receita': float,
                 'total_pago': float,
                 'total_faturado': float
@@ -139,6 +167,7 @@ def calcular_metricas(df: pd.DataFrame) -> Dict[str, float]:
     """
     metricas = {
         'total_processos': calcular_total_processos(df),
+        'processos_concluidos': calcular_processos_concluidos(df),
         'receita': calcular_receita(df),
         'total_pago': calcular_total_pago(df),
         'total_faturado': calcular_total_faturado(df)
@@ -160,6 +189,7 @@ def formatar_metricas(metricas: Dict[str, float]) -> Dict[str, str]:
     try:
         formatadas = {
             'total_processos': f"{metricas['total_processos']:,}".replace(',', '.'),
+            'processos_concluidos': f"{metricas['processos_concluidos']:,}".replace(',', '.'),
             'receita': f"R$ {metricas['receita']:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'),
             'total_pago': f"R$ {metricas['total_pago']:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'),
             'total_faturado': f"R$ {metricas['total_faturado']:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
@@ -171,6 +201,7 @@ def formatar_metricas(metricas: Dict[str, float]) -> Dict[str, str]:
         print(f"⚠️ Erro ao formatar métricas: {str(e)}")
         return {
             'total_processos': '0',
+            'processos_concluidos': '0',
             'receita': 'R$ 0,00',
             'total_pago': 'R$ 0,00',
             'total_faturado': 'R$ 0,00'
@@ -181,7 +212,11 @@ def processar_evolucao_semanal(df: pd.DataFrame) -> pd.DataFrame:
     """
     Processa dados para evolução semanal de processos
     
-    Agrupa processos por mês e semana (1-4)
+    Agrupa processos por mês e semana (1-4) e calcula:
+    - Quantidade total
+    - Valores pagos
+    - Valores faturados
+    - Processos cancelados (sem status PAGO/FATURADO)
     
     Lógica de semanas:
     - Semana 1: dias 1-7
@@ -193,7 +228,8 @@ def processar_evolucao_semanal(df: pd.DataFrame) -> pd.DataFrame:
         df: DataFrame com coluna 'DATA CRIAÇÃO'
         
     Returns:
-        DataFrame com colunas: ['mes_ano', 'semana', 'quantidade']
+        DataFrame com colunas: ['mes_ano', 'semana', 'quantidade',
+                                'valor_pago', 'valor_faturado', 'processos_cancelados']
     """
     try:
         # Copiar DataFrame
@@ -210,8 +246,31 @@ def processar_evolucao_semanal(df: pd.DataFrame) -> pd.DataFrame:
         df_temp['semana'] = ((df_temp['dia'] - 1) // 7) + 1
         df_temp['semana'] = df_temp['semana'].clip(upper=4)  # Máximo semana 4
         
-        # Agrupar e contar
-        evolucao = df_temp.groupby(['mes_ano', 'semana']).size().reset_index(name='quantidade')
+        # Criar colunas para cada tipo
+        df_temp['valor_pago'] = df_temp.apply(
+            lambda row: row['VALOR DO PROCESSO'] if str(row['STATUS PAGAMENTO']).upper() == 'PAGO' else 0, 
+            axis=1
+        )
+        df_temp['valor_faturado'] = df_temp.apply(
+            lambda row: row['VALOR DO PROCESSO'] if str(row['STATUS PAGAMENTO']).upper() == 'FATURADO' else 0, 
+            axis=1
+        )
+        df_temp['cancelado'] = df_temp.apply(
+            lambda row: 1 if str(row['STATUS PAGAMENTO']).upper() not in ['PAGO', 'FATURADO'] else 0,
+            axis=1
+        )
+        
+        # Agrupar e calcular
+        evolucao = df_temp.groupby(['mes_ano', 'semana']).agg({
+            'data': 'count',  # Quantidade total
+            'valor_pago': 'sum',
+            'valor_faturado': 'sum',
+            'cancelado': 'sum'
+        }).reset_index()
+        
+        # Renomear colunas
+        evolucao.columns = ['mes_ano', 'semana', 'quantidade', 
+                           'valor_pago', 'valor_faturado', 'processos_cancelados']
         
         # Converter período para string
         evolucao['mes_ano'] = evolucao['mes_ano'].astype(str)
@@ -222,24 +281,31 @@ def processar_evolucao_semanal(df: pd.DataFrame) -> pd.DataFrame:
         return evolucao
     
     except KeyError as e:
-        print(f"⚠️ Erro: Coluna 'DATA CRIAÇÃO' não encontrada - {str(e)}")
-        return pd.DataFrame(columns=['mes_ano', 'semana', 'quantidade'])
+        print(f"⚠️ Erro: Coluna não encontrada - {str(e)}")
+        return pd.DataFrame(columns=['mes_ano', 'semana', 'quantidade',
+                                     'valor_pago', 'valor_faturado', 'processos_cancelados'])
     except Exception as e:
         print(f"⚠️ Erro ao processar evolução semanal: {str(e)}")
-        return pd.DataFrame(columns=['mes_ano', 'semana', 'quantidade'])
+        return pd.DataFrame(columns=['mes_ano', 'semana', 'quantidade',
+                                     'valor_pago', 'valor_faturado', 'processos_cancelados'])
 
 
 def processar_evolucao_mensal(df: pd.DataFrame) -> pd.DataFrame:
     """
     Processa dados para evolução mensal de processos
     
-    Agrupa processos por mês
+    Agrupa processos por mês e calcula:
+    - Quantidade total
+    - Valores pagos
+    - Valores faturados
+    - Processos cancelados (sem status PAGO/FATURADO)
     
     Args:
         df: DataFrame com coluna 'DATA CRIAÇÃO'
         
     Returns:
-        DataFrame com colunas: ['mes_ano', 'mes_nome', 'quantidade']
+        DataFrame com colunas: ['mes_ano', 'mes_nome', 'quantidade', 
+                                'valor_pago', 'valor_faturado', 'processos_cancelados']
     """
     try:
         # Mapeamento de meses para português
@@ -260,8 +326,31 @@ def processar_evolucao_mensal(df: pd.DataFrame) -> pd.DataFrame:
         df_temp['ano'] = df_temp['data'].dt.year
         df_temp['mes'] = df_temp['data'].dt.month
         
-        # Agrupar e contar
-        evolucao = df_temp.groupby(['mes_ano', 'ano', 'mes']).size().reset_index(name='quantidade')
+        # Criar colunas para cada tipo
+        df_temp['valor_pago'] = df_temp.apply(
+            lambda row: row['VALOR DO PROCESSO'] if str(row['STATUS PAGAMENTO']).upper() == 'PAGO' else 0, 
+            axis=1
+        )
+        df_temp['valor_faturado'] = df_temp.apply(
+            lambda row: row['VALOR DO PROCESSO'] if str(row['STATUS PAGAMENTO']).upper() == 'FATURADO' else 0, 
+            axis=1
+        )
+        df_temp['cancelado'] = df_temp.apply(
+            lambda row: 1 if str(row['STATUS PAGAMENTO']).upper() not in ['PAGO', 'FATURADO'] else 0,
+            axis=1
+        )
+        
+        # Agrupar e calcular
+        evolucao = df_temp.groupby(['mes_ano', 'ano', 'mes']).agg({
+            'data': 'count',  # Quantidade total
+            'valor_pago': 'sum',
+            'valor_faturado': 'sum',
+            'cancelado': 'sum'
+        }).reset_index()
+        
+        # Renomear colunas
+        evolucao.columns = ['mes_ano', 'ano', 'mes', 'quantidade', 
+                           'valor_pago', 'valor_faturado', 'processos_cancelados']
         
         # Criar nome do mês em português
         evolucao['mes_nome'] = evolucao['mes'].map(meses_pt) + ' ' + evolucao['ano'].astype(str)
@@ -269,14 +358,17 @@ def processar_evolucao_mensal(df: pd.DataFrame) -> pd.DataFrame:
         # Ordenar
         evolucao = evolucao.sort_values(['ano', 'mes'])
         
-        return evolucao[['mes_ano', 'mes_nome', 'quantidade']]
+        return evolucao[['mes_ano', 'mes_nome', 'quantidade', 
+                        'valor_pago', 'valor_faturado', 'processos_cancelados']]
     
     except KeyError as e:
-        print(f"⚠️ Erro: Coluna 'DATA CRIAÇÃO' não encontrada - {str(e)}")
-        return pd.DataFrame(columns=['mes_ano', 'mes_nome', 'quantidade'])
+        print(f"⚠️ Erro: Coluna não encontrada - {str(e)}")
+        return pd.DataFrame(columns=['mes_ano', 'mes_nome', 'quantidade', 
+                                     'valor_pago', 'valor_faturado', 'processos_cancelados'])
     except Exception as e:
         print(f"⚠️ Erro ao processar evolução mensal: {str(e)}")
-        return pd.DataFrame(columns=['mes_ano', 'mes_nome', 'quantidade'])
+        return pd.DataFrame(columns=['mes_ano', 'mes_nome', 'quantidade', 
+                                     'valor_pago', 'valor_faturado', 'processos_cancelados'])
 
 
 def extrair_meses_disponiveis(df: pd.DataFrame) -> List[Tuple[str, str]]:
