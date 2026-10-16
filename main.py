@@ -1,7 +1,14 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
-from src.metricas import calcular_metricas, formatar_metricas
+from src.metricas import (
+    calcular_metricas, 
+    formatar_metricas,
+    obter_limites_datas,
+    filtrar_por_data_range,
+    processar_evolucao_mensal,
+    processar_evolucao_semanal
+)
 
 # Configuração da página
 st.set_page_config(
@@ -94,8 +101,6 @@ with st.sidebar:
         st.markdown("---")
         st.subheader("🔍 Filtros")
         
-        from src.metricas import obter_limites_datas
-        
         # Obter limites de datas dos dados
         data_min, data_max = obter_limites_datas(st.session_state.df_limpo)
         
@@ -154,8 +159,6 @@ df_exibicao = st.session_state.df_limpo
 metricas_exibicao = st.session_state.metricas
 
 if st.session_state.df_limpo is not None and st.session_state.get('filtro_ativo', False):
-    from src.metricas import filtrar_por_data_range
-    
     # Aplicar filtro de data range
     df_exibicao = filtrar_por_data_range(
         st.session_state.df_limpo, 
@@ -231,8 +234,6 @@ if metricas_exibicao is not None:
     # ==================== GRÁFICO DE EVOLUÇÃO ====================
     st.markdown("---")
     st.subheader("📈 Evolução dos Processos")
-    
-    from src.metricas import processar_evolucao_mensal, processar_evolucao_semanal
     
     # Decidir qual tipo de gráfico exibir baseado no filtro
     if not st.session_state.get('filtro_ativo', False):
