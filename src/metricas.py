@@ -456,3 +456,64 @@ def filtrar_por_mes(df: pd.DataFrame, periodo: str) -> pd.DataFrame:
     except Exception as e:
         print(f"⚠️ Erro ao filtrar por mês: {str(e)}")
         return df
+
+
+def filtrar_por_data_range(df: pd.DataFrame, data_inicio, data_fim) -> pd.DataFrame:
+    """
+    Filtra DataFrame por range de datas
+    
+    Args:
+        df: DataFrame com coluna 'DATA CRIAÇÃO'
+        data_inicio: Data inicial (datetime.date ou None)
+        data_fim: Data final (datetime.date ou None)
+        
+    Returns:
+        DataFrame filtrado
+    """
+    try:
+        if data_inicio is None and data_fim is None:
+            return df
+        
+        # Converter DATA CRIAÇÃO para datetime
+        df_temp = df.copy()
+        df_temp['data'] = pd.to_datetime(df_temp['DATA CRIAÇÃO'], format='%d/%m/%Y %H:%M:%S')
+        
+        # Aplicar filtros
+        if data_inicio is not None:
+            df_temp = df_temp[df_temp['data'].dt.date >= data_inicio]
+        
+        if data_fim is not None:
+            df_temp = df_temp[df_temp['data'].dt.date <= data_fim]
+        
+        # Remover coluna temporária
+        df_temp = df_temp.drop(columns=['data'])
+        
+        return df_temp
+    
+    except Exception as e:
+        print(f"⚠️ Erro ao filtrar por range de datas: {str(e)}")
+        return df
+
+
+def obter_limites_datas(df: pd.DataFrame) -> tuple:
+    """
+    Obtém as datas mínima e máxima do DataFrame
+    
+    Args:
+        df: DataFrame com coluna 'DATA CRIAÇÃO'
+        
+    Returns:
+        tuple: (data_minima, data_maxima) como datetime.date
+    """
+    try:
+        df_temp = df.copy()
+        df_temp['data'] = pd.to_datetime(df_temp['DATA CRIAÇÃO'], format='%d/%m/%Y %H:%M:%S')
+        
+        data_min = df_temp['data'].min().date()
+        data_max = df_temp['data'].max().date()
+        
+        return (data_min, data_max)
+    
+    except Exception as e:
+        print(f"⚠️ Erro ao obter limites de datas: {str(e)}")
+        return (None, None)

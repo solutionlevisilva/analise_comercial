@@ -94,44 +94,74 @@ with st.sidebar:
         st.markdown("---")
         st.subheader("🔍 Filtros")
         
-        from src.metricas import extrair_meses_disponiveis
+        from src.metricas import obter_limites_datas
         
-        # Extrair meses disponíveis
-        meses_disponiveis = extrair_meses_disponiveis(st.session_state.df_limpo)
+        # Obter limites de datas dos dados
+        data_min, data_max = obter_limites_datas(st.session_state.df_limpo)
         
-        if meses_disponiveis:
-            # Criar opções para o selectbox
-            opcoes = [("Todos os meses", None)] + meses_disponiveis
-            nomes_opcoes = [nome for nome, _ in opcoes]
+        if data_min and data_max:
+            st.write("📅 **Período dos Dados:**")
+            st.write(f"{data_min.strftime('%d/%m/%Y')} até {data_max.strftime('%d/%m/%Y')}")
+            st.write("")
             
-            # Selectbox de filtro
-            selecao_nome = st.selectbox(
-                "📅 Filtrar por Período",
-                options=nomes_opcoes,
-                index=0,
-                key="filtro_periodo"
+            # Opções de filtro rápido
+            filtro_rapido = st.radio(
+                "Selecione o período:",
+                ["Todos os meses", "Personalizado"],
+                index=0
             )
             
-            # Encontrar o período correspondente
-            periodo_selecionado = None
-            for nome, periodo in opcoes:
-                if nome == selecao_nome:
-                    periodo_selecionado = periodo
-                    break
-            
-            # Armazenar no session_state
-            st.session_state.periodo_filtro = periodo_selecionado
-            st.session_state.nome_periodo = selecao_nome
+            if filtro_rapido == "Personalizado":
+                # Date range picker
+                st.write("**Selecione o intervalo:**")
+                
+                col_data1, col_data2 = st.columns(2)
+                
+                with col_data1:
+                    data_inicial = st.date_input(
+                        "De:",
+                        value=data_min,
+                        min_value=data_min,
+                        max_value=data_max,
+                        key="data_inicio"
+                    )
+                
+                with col_data2:
+                    data_final = st.date_input(
+                        "Até:",
+                        value=data_max,
+                        min_value=data_min,
+                        max_value=data_max,
+                        key="data_fim"
+                    )
+                
+                # Armazenar no session_state
+                st.session_state.data_inicio_filtro = data_inicial
+                st.session_state.data_fim_filtro = data_final
+                st.session_state.filtro_ativo = True
+                
+                # Mostrar quantos meses selecionados
+                meses_diff = (data_final.year - data_inicial.year) * 12 + (data_final.month - data_inicial.month) + 1
+                st.info(f"📊 Período: {meses_diff} {'mês' if meses_diff == 1 else 'meses'}")
+            else:
+                # Sem filtro
+                st.session_state.data_inicio_filtro = None
+                st.session_state.data_fim_filtro = None
+                st.session_state.filtro_ativo = False
 
 # ==================== APLICAR FILTROS ====================
 df_exibicao = st.session_state.df_limpo
 metricas_exibicao = st.session_state.metricas
 
-if st.session_state.df_limpo is not None and st.session_state.periodo_filtro is not None:
-    from src.metricas import filtrar_por_mes
+if st.session_state.df_limpo is not None and st.session_state.get('filtro_ativo', False):
+    from src.metricas import filtrar_por_data_range
     
-    # Aplicar filtro
-    df_exibicao = filtrar_por_mes(st.session_state.df_limpo, st.session_state.periodo_filtro)
+    # Aplicar filtro de data range
+    df_exibicao = filtrar_por_data_range(
+        st.session_state.df_limpo, 
+        st.session_state.get('data_inicio_filtro'),
+        st.session_state.get('data_fim_filtro')
+    )
     
     # Recalcular métricas com dados filtrados
     if len(df_exibicao) > 0:
@@ -144,7 +174,7 @@ if st.session_state.df_limpo is not None and st.session_state.periodo_filtro is 
             'total_pago': 0.0,
             'total_faturado': 0.0
         }
-        st.warning(f"⚠️ Nenhum processo encontrado para {st.session_state.nome_periodo}")
+        st.warning(f"⚠️ Nenhum processo encontrado para o período selecionado")
 
 # ==================== EXIBIÇÃO DAS MÉTRICAS ====================
 if metricas_exibicao is not None:
@@ -152,8 +182,10 @@ if metricas_exibicao is not None:
     st.subheader("📈 Métricas Principais")
     
     # Mostrar indicador de filtro ativo
-    if st.session_state.periodo_filtro is not None:
-        st.info(f"📅 Exibindo dados de: **{st.session_state.nome_periodo}**")
+    if st.session_state.get('filtro_ativo', False):
+        data_inicio = st.session_state.get('data_inicio_filtro')
+        data_fim = st.session_state.get('data_fim_filtro')
+        st.info(f"📅 Exibindo dados de: **{data_inicio.strftime('%d/%m/%Y')}** até **{data_fim.strftime('%d/%m/%Y')}**")
     
     # Formatar métricas
     metricas_formatadas = formatar_metricas(metricas_exibicao)
@@ -203,7 +235,7 @@ if metricas_exibicao is not None:
     from src.metricas import processar_evolucao_mensal, processar_evolucao_semanal
     
     # Decidir qual tipo de gráfico exibir baseado no filtro
-    if st.session_state.periodo_filtro is None:
+    if not st.session_state.get('filtro_ativo', False):
         # SEM FILTRO: Mostrar evolução mensal
         with st.spinner("📊 Gerando gráfico mensal..."):
             df_evolucao = processar_evolucao_mensal(df_exibicao)
@@ -286,23 +318,119 @@ if metricas_exibicao is not None:
             st.warning("⚠️ Não foi possível gerar o gráfico de evolução.")
     
     else:
-        # COM FILTRO: Mostrar evolução semanal do mês selecionado
-        with st.spinner("📊 Gerando gráfico semanal..."):
-            df_evolucao = processar_evolucao_semanal(df_exibicao)
+        # COM FILTRO: Mostrar evolução semanal ou mensal dependendo do range
+        with st.spinner("📊 Gerando gráfico..."):
+            # Verificar quantos meses no filtro
+            data_inicio = st.session_state.get('data_inicio_filtro')
+            data_fim = st.session_state.get('data_fim_filtro')
+            meses_diff = (data_fim.year - data_inicio.year) * 12 + (data_fim.month - data_inicio.month) + 1
+            
+            # Se for 1 mês, mostrar semanal. Se for mais, mostrar mensal
+            if meses_diff == 1:
+                # Gráfico SEMANAL
+                df_evolucao = processar_evolucao_semanal(df_exibicao)
+            else:
+                # Gráfico MENSAL (múltiplos meses)
+                df_evolucao = processar_evolucao_mensal(df_exibicao)
         
         if not df_evolucao.empty:
-            # Filtrar apenas o mês selecionado
-            dados_mes = df_evolucao[df_evolucao['mes_ano'] == st.session_state.periodo_filtro]
-            
-            if not dados_mes.empty:
+            if meses_diff == 1:
+                # Gráfico semanal (1 mês selecionado)
+                # Filtrar apenas o mês se houver múltiplos
+                if len(df_evolucao['mes_ano'].unique()) > 1:
+                    # Pegar o primeiro mês
+                    mes_unico = sorted(df_evolucao['mes_ano'].unique())[0]
+                    dados_periodo = df_evolucao[df_evolucao['mes_ano'] == mes_unico]
+                else:
+                    dados_periodo = df_evolucao
+                
+                if not dados_periodo.empty:
+                    # Criar gráfico misto (barras + linhas)
+                    fig = go.Figure()
+                    
+                    # Barras: Quantidade total
+                    fig.add_trace(go.Bar(
+                        x=[f"Semana {s}" for s in dados_periodo['semana']],
+                        y=dados_periodo['quantidade'],
+                        text=dados_periodo['quantidade'],
+                        textposition='outside',
+                        marker_color='#1f77b4',
+                        name='Total de Processos',
+                        yaxis='y'
+                    ))
+                    
+                    # Linha 1: Valores Pagos
+                    fig.add_trace(go.Scatter(
+                        x=[f"Semana {s}" for s in dados_periodo['semana']],
+                        y=dados_periodo['valor_pago'],
+                        mode='lines+markers',
+                        name='Total Pago',
+                        line=dict(color='#2ca02c', width=3),
+                        marker=dict(size=8),
+                        yaxis='y2'
+                    ))
+                    
+                    # Linha 2: Valores Faturados
+                    fig.add_trace(go.Scatter(
+                        x=[f"Semana {s}" for s in dados_periodo['semana']],
+                        y=dados_periodo['valor_faturado'],
+                        mode='lines+markers',
+                        name='Total Faturado',
+                        line=dict(color='#ff7f0e', width=3),
+                        marker=dict(size=8),
+                        yaxis='y2'
+                    ))
+                    
+                    # Linha 3: Processos Cancelados
+                    fig.add_trace(go.Scatter(
+                        x=[f"Semana {s}" for s in dados_periodo['semana']],
+                        y=dados_periodo['processos_cancelados'],
+                        mode='lines+markers',
+                        name='Processos Cancelados',
+                        line=dict(color='#d62728', width=3, dash='dot'),
+                        marker=dict(size=8),
+                        yaxis='y'
+                    ))
+                    
+                    # Configurar layout com dois eixos Y
+                    nome_mes = f"{data_inicio.strftime('%B %Y')}"
+                    fig.update_layout(
+                        title=f"Evolução Semanal - {nome_mes}",
+                        xaxis_title="Semanas do Mês",
+                        yaxis=dict(
+                            title="Quantidade de Processos",
+                            side='left'
+                        ),
+                        yaxis2=dict(
+                            title="Valores (R$)",
+                            overlaying='y',
+                            side='right'
+                        ),
+                        height=500,
+                        hovermode='x unified',
+                        legend=dict(
+                            orientation="h",
+                            yanchor="bottom",
+                            y=1.02,
+                            xanchor="right",
+                            x=1
+                        )
+                    )
+                    
+                    # Exibir gráfico
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.warning(f"⚠️ Nenhum dado encontrado para o período selecionado")
+            else:
+                # Gráfico mensal (múltiplos meses)
                 # Criar gráfico misto (barras + linhas)
                 fig = go.Figure()
                 
                 # Barras: Quantidade total
                 fig.add_trace(go.Bar(
-                    x=[f"Semana {s}" for s in dados_mes['semana']],
-                    y=dados_mes['quantidade'],
-                    text=dados_mes['quantidade'],
+                    x=df_evolucao['mes_nome'],
+                    y=df_evolucao['quantidade'],
+                    text=df_evolucao['quantidade'],
                     textposition='outside',
                     marker_color='#1f77b4',
                     name='Total de Processos',
@@ -311,8 +439,8 @@ if metricas_exibicao is not None:
                 
                 # Linha 1: Valores Pagos
                 fig.add_trace(go.Scatter(
-                    x=[f"Semana {s}" for s in dados_mes['semana']],
-                    y=dados_mes['valor_pago'],
+                    x=df_evolucao['mes_nome'],
+                    y=df_evolucao['valor_pago'],
                     mode='lines+markers',
                     name='Total Pago',
                     line=dict(color='#2ca02c', width=3),
@@ -322,8 +450,8 @@ if metricas_exibicao is not None:
                 
                 # Linha 2: Valores Faturados
                 fig.add_trace(go.Scatter(
-                    x=[f"Semana {s}" for s in dados_mes['semana']],
-                    y=dados_mes['valor_faturado'],
+                    x=df_evolucao['mes_nome'],
+                    y=df_evolucao['valor_faturado'],
                     mode='lines+markers',
                     name='Total Faturado',
                     line=dict(color='#ff7f0e', width=3),
@@ -333,8 +461,8 @@ if metricas_exibicao is not None:
                 
                 # Linha 3: Processos Cancelados
                 fig.add_trace(go.Scatter(
-                    x=[f"Semana {s}" for s in dados_mes['semana']],
-                    y=dados_mes['processos_cancelados'],
+                    x=df_evolucao['mes_nome'],
+                    y=df_evolucao['processos_cancelados'],
                     mode='lines+markers',
                     name='Processos Cancelados',
                     line=dict(color='#d62728', width=3, dash='dot'),
@@ -344,8 +472,8 @@ if metricas_exibicao is not None:
                 
                 # Configurar layout com dois eixos Y
                 fig.update_layout(
-                    title=f"Evolução Semanal - {st.session_state.nome_periodo}",
-                    xaxis_title="Semanas do Mês",
+                    title=f"Evolução Mensal - {data_inicio.strftime('%m/%Y')} até {data_fim.strftime('%m/%Y')}",
+                    xaxis_title="Mês",
                     yaxis=dict(
                         title="Quantidade de Processos",
                         side='left'
@@ -368,8 +496,6 @@ if metricas_exibicao is not None:
                 
                 # Exibir gráfico
                 st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.warning(f"⚠️ Nenhum dado encontrado para {st.session_state.nome_periodo}")
         else:
             st.warning("⚠️ Não foi possível gerar o gráfico de evolução.")
 
