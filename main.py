@@ -57,9 +57,9 @@ st.title("📊 Relatório de Análise Comercial")
 # ==================== PROCESSAMENTO DOS DADOS ====================
 if uploaded_file is not None:
     try:
-        # Carregar dados direto com pandas
+        # Carregar dados direto com pandas (sheet_name=1 para segunda planilha)
         with st.spinner("⏳ Carregando dados..."):
-            df = pd.read_excel(uploaded_file)
+            df = pd.read_excel(uploaded_file, sheet_name=1)
             st.session_state.df_original = df
             st.success(f"✅ Carregado com sucesso!")
         

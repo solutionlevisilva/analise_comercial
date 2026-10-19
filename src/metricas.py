@@ -30,9 +30,9 @@ def calcular_total_processos(df: pd.DataFrame) -> int:
 
 def calcular_processos_concluidos(df: pd.DataFrame) -> int:
     """
-    Calcula a quantidade de processos concluídos (PAGO ou FATURADO)
+    Calcula a quantidade de processos concluídos (PAGO ou INVOICED_PAID)
     
-    Regra: Conta registros onde STATUS PAGAMENTO = "PAGO" ou "FATURADO"
+    Regra: Conta registros onde STATUS PAGAMENTO = "PAGO" ou "INVOICED_PAID"
     
     Args:
         df: DataFrame com os dados
@@ -41,8 +41,8 @@ def calcular_processos_concluidos(df: pd.DataFrame) -> int:
         int: Quantidade de processos concluídos
     """
     try:
-        # Filtrar processos com status PAGO ou FATURADO
-        mask = df['STATUS PAGAMENTO'].str.upper().isin(['PAGO', 'FATURADO'])
+        # Filtrar processos com status PAGO ou INVOICED_PAID
+        mask = df['STATUS PAGAMENTO'].str.upper().isin(['PAGO', 'INVOICED_PAID'])
         total_concluidos = mask.sum()
         
         return int(total_concluidos)
@@ -59,7 +59,7 @@ def calcular_receita(df: pd.DataFrame) -> float:
     """
     Calcula a receita total dos processos pagos ou faturados
     
-    Regra: Soma VALOR DO PROCESSO onde STATUS PAGAMENTO = "PAGO" ou "FATURADO"
+    Regra: Soma VALOR DO PROCESSO onde STATUS PAGAMENTO = "PAGO" ou "INVOICED_PAID"
     
     Args:
         df: DataFrame com os dados
@@ -68,8 +68,8 @@ def calcular_receita(df: pd.DataFrame) -> float:
         float: Receita total
     """
     try:
-        # Filtrar processos com status PAGO ou FATURADO
-        mask = df['STATUS PAGAMENTO'].str.upper().isin(['PAGO', 'FATURADO'])
+        # Filtrar processos com status PAGO ou INVOICED_PAID
+        mask = df['STATUS PAGAMENTO'].str.upper().isin(['PAGO', 'INVOICED_PAID'])
         df_filtrado = df[mask]
         
         # Somar valores
@@ -120,9 +120,9 @@ def calcular_total_pago(df: pd.DataFrame) -> float:
 
 def calcular_total_faturado(df: pd.DataFrame) -> float:
     """
-    Calcula o total de valores com status FATURADO
+    Calcula o total de valores com status INVOICED_PAID
     
-    Regra: Soma VALOR DO PROCESSO onde STATUS PAGAMENTO = "FATURADO"
+    Regra: Soma VALOR DO PROCESSO onde STATUS PAGAMENTO = "INVOICED_PAID"
     
     Args:
         df: DataFrame com os dados
@@ -131,8 +131,8 @@ def calcular_total_faturado(df: pd.DataFrame) -> float:
         float: Total de valores faturados
     """
     try:
-        # Filtrar processos com status FATURADO
-        mask = df['STATUS PAGAMENTO'].str.upper() == 'FATURADO'
+        # Filtrar processos com status INVOICED_PAID
+        mask = df['STATUS PAGAMENTO'].str.upper() == 'INVOICED_PAID'
         df_filtrado = df[mask]
         
         # Somar valores
@@ -225,7 +225,7 @@ def processar_evolucao_semanal(df: pd.DataFrame) -> pd.DataFrame:
     - Semana 4: dias 22-31
     
     Args:
-        df: DataFrame com coluna 'DATA CRIAÇÃO'
+        df: DataFrame com coluna 'DATA CRIACAO'
         
     Returns:
         DataFrame com colunas: ['mes_ano', 'semana', 'quantidade',
@@ -235,8 +235,8 @@ def processar_evolucao_semanal(df: pd.DataFrame) -> pd.DataFrame:
         # Copiar DataFrame
         df_temp = df.copy()
         
-        # Converter DATA CRIAÇÃO para datetime
-        df_temp['data'] = pd.to_datetime(df_temp['DATA CRIAÇÃO'], format='%d/%m/%Y %H:%M:%S')
+        # Converter DATA CRIACAO para datetime
+        df_temp['data'] = pd.to_datetime(df_temp['DATA CRIACAO'], format='%d/%m/%Y %H:%M:%S')
         
         # Extrair mês/ano
         df_temp['mes_ano'] = df_temp['data'].dt.to_period('M')
@@ -252,11 +252,11 @@ def processar_evolucao_semanal(df: pd.DataFrame) -> pd.DataFrame:
             axis=1
         )
         df_temp['valor_faturado'] = df_temp.apply(
-            lambda row: row['VALOR DO PROCESSO'] if str(row['STATUS PAGAMENTO']).upper() == 'FATURADO' else 0, 
+            lambda row: row['VALOR DO PROCESSO'] if str(row['STATUS PAGAMENTO']).upper() == 'INVOICED_PAID' else 0, 
             axis=1
         )
         df_temp['cancelado'] = df_temp.apply(
-            lambda row: 1 if str(row['STATUS PAGAMENTO']).upper() not in ['PAGO', 'FATURADO'] else 0,
+            lambda row: 1 if str(row['STATUS PAGAMENTO']).upper() not in ['PAGO', 'INVOICED_PAID'] else 0,
             axis=1
         )
         
@@ -301,7 +301,7 @@ def processar_evolucao_mensal(df: pd.DataFrame) -> pd.DataFrame:
     - Processos cancelados (sem status PAGO/FATURADO)
     
     Args:
-        df: DataFrame com coluna 'DATA CRIAÇÃO'
+        df: DataFrame com coluna 'DATA CRIACAO'
         
     Returns:
         DataFrame com colunas: ['mes_ano', 'mes_nome', 'quantidade', 
@@ -318,8 +318,8 @@ def processar_evolucao_mensal(df: pd.DataFrame) -> pd.DataFrame:
         # Copiar DataFrame
         df_temp = df.copy()
         
-        # Converter DATA CRIAÇÃO para datetime
-        df_temp['data'] = pd.to_datetime(df_temp['DATA CRIAÇÃO'], format='%d/%m/%Y %H:%M:%S')
+        # Converter DATA CRIACAO para datetime
+        df_temp['data'] = pd.to_datetime(df_temp['DATA CRIACAO'], format='%d/%m/%Y %H:%M:%S')
         
         # Extrair mês/ano
         df_temp['mes_ano'] = df_temp['data'].dt.to_period('M').astype(str)
@@ -332,11 +332,11 @@ def processar_evolucao_mensal(df: pd.DataFrame) -> pd.DataFrame:
             axis=1
         )
         df_temp['valor_faturado'] = df_temp.apply(
-            lambda row: row['VALOR DO PROCESSO'] if str(row['STATUS PAGAMENTO']).upper() == 'FATURADO' else 0, 
+            lambda row: row['VALOR DO PROCESSO'] if str(row['STATUS PAGAMENTO']).upper() == 'INVOICED_PAID' else 0, 
             axis=1
         )
         df_temp['cancelado'] = df_temp.apply(
-            lambda row: 1 if str(row['STATUS PAGAMENTO']).upper() not in ['PAGO', 'FATURADO'] else 0,
+            lambda row: 1 if str(row['STATUS PAGAMENTO']).upper() not in ['PAGO', 'INVOICED_PAID'] else 0,
             axis=1
         )
         
@@ -376,7 +376,7 @@ def extrair_meses_disponiveis(df: pd.DataFrame) -> List[Tuple[str, str]]:
     Extrai meses únicos do DataFrame e formata em português
     
     Args:
-        df: DataFrame com coluna 'DATA CRIAÇÃO'
+        df: DataFrame com coluna 'DATA CRIACAO'
         
     Returns:
         list: Lista de tuplas (nome_exibicao, periodo)
@@ -399,9 +399,9 @@ def extrair_meses_disponiveis(df: pd.DataFrame) -> List[Tuple[str, str]]:
             12: 'Dezembro'
         }
         
-        # Converter DATA CRIAÇÃO para datetime
+        # Converter DATA CRIACAO para datetime
         df_temp = df.copy()
-        df_temp['data'] = pd.to_datetime(df_temp['DATA CRIAÇÃO'], format='%d/%m/%Y %H:%M:%S')
+        df_temp['data'] = pd.to_datetime(df_temp['DATA CRIACAO'], format='%d/%m/%Y %H:%M:%S')
         
         # Extrair ano e mês
         df_temp['ano'] = df_temp['data'].dt.year
@@ -430,7 +430,7 @@ def filtrar_por_mes(df: pd.DataFrame, periodo: str) -> pd.DataFrame:
     Filtra DataFrame por período específico
     
     Args:
-        df: DataFrame com coluna 'DATA CRIAÇÃO'
+        df: DataFrame com coluna 'DATA CRIACAO'
         periodo: Período no formato 'YYYY-MM' (ex: '2026-03') ou None para todos
         
     Returns:
@@ -440,9 +440,9 @@ def filtrar_por_mes(df: pd.DataFrame, periodo: str) -> pd.DataFrame:
         if periodo is None or periodo == "":
             return df
         
-        # Converter DATA CRIAÇÃO para datetime
+        # Converter DATA CRIACAO para datetime
         df_temp = df.copy()
-        df_temp['data'] = pd.to_datetime(df_temp['DATA CRIAÇÃO'], format='%d/%m/%Y %H:%M:%S')
+        df_temp['data'] = pd.to_datetime(df_temp['DATA CRIACAO'], format='%d/%m/%Y %H:%M:%S')
         df_temp['periodo'] = df_temp['data'].dt.to_period('M').astype(str)
         
         # Filtrar
@@ -463,7 +463,7 @@ def filtrar_por_data_range(df: pd.DataFrame, data_inicio, data_fim) -> pd.DataFr
     Filtra DataFrame por range de datas
     
     Args:
-        df: DataFrame com coluna 'DATA CRIAÇÃO'
+        df: DataFrame com coluna 'DATA CRIACAO'
         data_inicio: Data inicial (datetime.date ou None)
         data_fim: Data final (datetime.date ou None)
         
@@ -474,9 +474,9 @@ def filtrar_por_data_range(df: pd.DataFrame, data_inicio, data_fim) -> pd.DataFr
         if data_inicio is None and data_fim is None:
             return df
         
-        # Converter DATA CRIAÇÃO para datetime
+        # Converter DATA CRIACAO para datetime
         df_temp = df.copy()
-        df_temp['data'] = pd.to_datetime(df_temp['DATA CRIAÇÃO'], format='%d/%m/%Y %H:%M:%S')
+        df_temp['data'] = pd.to_datetime(df_temp['DATA CRIACAO'], format='%d/%m/%Y %H:%M:%S')
         
         # Aplicar filtros
         if data_inicio is not None:
@@ -500,14 +500,14 @@ def obter_limites_datas(df: pd.DataFrame) -> tuple:
     Obtém as datas mínima e máxima do DataFrame
     
     Args:
-        df: DataFrame com coluna 'DATA CRIAÇÃO'
+        df: DataFrame com coluna 'DATA CRIACAO'
         
     Returns:
         tuple: (data_minima, data_maxima) como datetime.date
     """
     try:
         df_temp = df.copy()
-        df_temp['data'] = pd.to_datetime(df_temp['DATA CRIAÇÃO'], format='%d/%m/%Y %H:%M:%S')
+        df_temp['data'] = pd.to_datetime(df_temp['DATA CRIACAO'], format='%d/%m/%Y %H:%M:%S')
         
         data_min = df_temp['data'].min().date()
         data_max = df_temp['data'].max().date()
